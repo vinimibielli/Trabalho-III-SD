@@ -29,15 +29,15 @@ module tb;
     start  = 1'b1;
     #20;
     start  = 1'b0;
-    #1000;
-    enc_dec  = 1'b0;
-    data_i = 64'h272612A5EE5D03AD;
-    start  = 1'b1;
-    #10;
-    start  = 1'b0;
+    //#1000;
+    //enc_dec  = 1'b0;
+   // data_i = 64'h272612A5EE5D03AD;
+    //start  = 1'b1;
+   // #10;
+   // start  = 1'b0;
     #1000;
   end
 
-  criptografia_GOST DUT(.clock(clock), .reset(reset), .start(start), .enc_dec(enc_dec), .data_i(data_i), .key_i(key_i), .data_o(data_o), .busy(busy), .ready_o(ready));
+  criptografia_GOST DUT(.clock(clock), .reset(reset), .start(start), .enc_dec(enc_dec), .data_i(data_i), .key_i(key_i), .data_o(data_o), .busy_o(busy), .ready_o(ready));
 
 endmodule 

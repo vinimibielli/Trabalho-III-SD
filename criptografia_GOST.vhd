@@ -16,7 +16,7 @@ entity criptografia_GOST is
 		start, enc_dec, reset, clock	:	in	std_logic;
 		data_i							:	in 	std_logic_vector(63 downto 0);
 		key_i							: 	in	std_logic_vector(255 downto 0);
-		busy, ready_o					:	out	std_logic;
+		busy_o, ready_o					:	out	std_logic;
 		data_o							:	out	std_logic_vector(63 downto 0));
 end entity;
 
@@ -26,14 +26,27 @@ end entity;
 
 architecture Arquitetura of criptografia_GOST is
 	signal i : std_logic_vector(4 downto 0);
+	signal j : std_logic_vector(2 downto 0);
 	signal enc_count : std_logic_vector(2 downto 0);
 	signal dec_count : std_logic_vector(2 downto 0);
 	signal key_count : std_logic_vector(2 downto 0);
 	signal MSB : std_logic_vector(31 downto 0);
 	signal LSB : std_logic_vector(31 downto 0);
-	signal modd : std_logic_vector(31 downto 0);
-	signal sbox : std_logic_vector(31 downto 0);
+	signal CM1 : std_logic_vector(31 downto 0);
+	signal CM1aux : std_logic_vector(31 downto 0);
+	signal sbox : std_logic_vector(31 downto 0) := x"00000000";
 	signal shift11 : std_logic_vector(31 downto 0);
+	signal atrasoi : std_logic := '0';
+	signal atrasoj : std_logic := '0';
+	signal Ni : std_logic_vector(7 downto 0);
+	signal NiValor : std_logic_vector(3 downto 0);
+	signal integerJ, integerJ2 : integer := 0;
+	signal NiInteger : integer := 0;
+	signal maskaux : std_logic_vector(31 downto 0) := x"00000000";
+	signal mask : std_logic_vector(31 downto 0) := x"00000000";
+	signal maskaux2 : std_logic_vector(31 downto 0) := x"00000000";
+	
+
 	
 
 	type vetor is array (natural range <>) of std_logic_vector(31 downto 0);
@@ -51,7 +64,7 @@ architecture Arquitetura of criptografia_GOST is
     (x"1", x"F", x"D", x"0", x"5", x"7", x"A", x"4", x"9", x"2", x"3", x"E", x"6", x"B", x"8", x"C")
 );
 type state is (idle, gost, ready);
-	signal EA, PE : state;
+	signal EA : state;
 
 begin
 
@@ -59,43 +72,43 @@ begin
 -- MÁQUINA DE ESTADOS
 --------------------------------------
 
-FSM: process(clock, reset)
-begin
-	if rising_edge(clock) then
-		if (reset = '1') then
-			EA <= idle;
-		else
-			EA <= PE;
-		end if;
-	end if;
-end process;
+--FSM: process(clock, reset)
+--begin
+--	if rising_edge(clock) then
+--		if (reset = '1') then
+--			EA <= idle;
+--		else
+--			EA <= EA;
+--		end if;
+--	end if;
+--end process;
 
 FSM_cases: process(clock, reset)
 begin
 	if rising_edge(clock) then
 		if (reset = '1') then
-			PE <= idle;
+			EA <= idle;
 		else
 		case EA is
 			when idle =>
 				if (start = '1') then
-					PE <= gost;
+					EA <= gost;
 				else
-					PE <= idle;
+					EA <= idle;
 				end if;
 
 			when gost =>
-				if(i = "11111") then
-					PE <= ready;
+				if(i = "11111" and j = "111") then
+					EA <= ready;
 				else
-					PE <= gost;
+					EA <= gost;
 				end if;
 
 			when ready =>
 				if (start = '1') then
-					PE <= idle;
+					EA <= idle;
 				else
-					PE <= ready;
+					EA <= ready;
 				end if;
 		end case;
 		end if;
@@ -105,10 +118,23 @@ end process;
 process(clock)
 begin
 	if rising_edge(clock) then
-	if(EA = idle or EA = ready) then
+	if(EA = idle or EA = ready or atrasoi = '0') then
 		i <= "00000";
 	else
-		i <= i + 1;
+		if(j = "111") then
+			i <= i + 1;
+		end if;
+		end if;
+	end if;
+end process;
+
+process(clock)
+begin
+	if rising_edge(clock) then
+		if(EA = idle or EA = ready) then
+			j <= "111";
+		else
+			j <= j + 1;
 	end if;
 	end if;
 end process;
@@ -116,11 +142,24 @@ end process;
 --------------------------------------
 -- GOST_ROUND
 --------------------------------------
+CM1 <= LSB + key(to_integer(unsigned(key_count)));
+--CM1 <= std_logic_vector(to_unsigned(to_integer(unsigned(LSB) + unsigned(key(to_integer(unsigned(key_count))))) mod 32, CM1'length));
+integerJ <= (4 * (7 - to_integer(unsigned(j))));
+integerJ2 <= (28 - (4 * to_integer(unsigned(j))));
+CM1aux <= std_logic_vector(shift_right(unsigned(CM1), integerJ));
+Ni <= std_logic_vector(to_unsigned(to_integer(unsigned(CM1aux)) mod 16,Ni'length));
+NiInteger <= to_integer(unsigned(Ni));
+NiValor <= s_box(to_integer(unsigned(j)), NiInteger);
+mask(31 downto 28) <= NiValor when (j = "000");
+mask(27 downto 24) <= NiValor when (j = "001");
+mask(23 downto 20) <= NiValor when (j = "010");
+mask(19 downto 16) <= NiValor when (j = "011");
+mask(15 downto 12) <= NiValor when (j = "100");
+mask(11 downto 8) <= NiValor when (j = "101");
+mask(7 downto 4) <= NiValor when (j = "110");
+mask(3 downto 0) <= NiValor when (j = "111");
 
-modd <= LSB + key(to_integer(unsigned(key_count)));
-sbox <= (s_box(to_integer(unsigned(enc_count)), to_integer(unsigned(modd(3 downto 0)))) & s_box(to_integer(unsigned(enc_count)), to_integer(unsigned(modd(7 downto 4)))) & s_box(to_integer(unsigned(enc_count)), to_integer(unsigned(modd(11 downto 8)))) & s_box(to_integer(unsigned(enc_count)), to_integer(unsigned(modd(15 downto 12))))) & (s_box(to_integer(unsigned(enc_count)), to_integer(unsigned(modd(19 downto 16)))) & s_box(to_integer(unsigned(enc_count)), to_integer(unsigned(modd(23 downto 20)))) & s_box(to_integer(unsigned(enc_count)), to_integer(unsigned(modd(27 downto 24)))) & s_box(to_integer(unsigned(enc_count)), to_integer(unsigned(modd(31 downto 28)))));
-shift11 <= sbox(20 downto 0) & sbox(31 downto 21);
-
+shift11 <= mask(20 downto 0) & mask(31 downto 21) when (j = "111") else (others => '0');
 
 process(clock, reset)
 begin
@@ -133,8 +172,10 @@ begin
 				MSB <= data_i(63 downto 32);
 				LSB <= data_i(31 downto 0);
 			elsif (EA = gost) then
-				MSB <= LSB;
-				LSB <= (MSB xor shift11);
+				if (j = "111") then
+					LSB <= (MSB xor shift11);
+					MSB <= LSB;
+				end if ;
 			end if;
 		end if;
 	end if;
@@ -149,12 +190,12 @@ enc_count <= (not i(2 downto 0)) when (i(4 downto 3) = "11") else (i(2 downto 0)
 dec_count <= (i(2 downto 0)) when (i(4 downto 3) = "11") else (not i(2 downto 0));
 key_count <= enc_count when enc_dec = '1' else dec_count;
 key <= (key_i(31 downto 0), key_i(63 downto 32), key_i(95 downto 64), key_i(127 downto 96), key_i(159 downto 128), key_i(191 downto 160), key_i(223 downto 192), key_i(255 downto 224));
-
+atrasoi <= '1' when (i = "00000" and j = "000");
 --------------------------------------
 -- SAÍDAS
 --------------------------------------
 
-busy <= '1' when (EA = gost) else '0';
+busy_o <= '1' when (EA = gost) else '0';
 ready_o <= '1' when (EA = ready) else '0';
 data_o <= MSB & LSB when (EA = ready) else (others => '0');
 
