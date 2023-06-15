@@ -34,17 +34,14 @@ architecture Arquitetura of criptografia_GOST is
 	signal LSB : std_logic_vector(31 downto 0);
 	signal CM1 : std_logic_vector(31 downto 0);
 	signal CM1aux : std_logic_vector(31 downto 0);
-	signal sbox : std_logic_vector(31 downto 0) := x"00000000";
 	signal shift11 : std_logic_vector(31 downto 0);
-	signal atrasoi : std_logic := '0';
-	signal atrasoj : std_logic := '0';
+	signal atraso : std_logic := '0';
 	signal Ni : std_logic_vector(7 downto 0);
 	signal NiValor : std_logic_vector(3 downto 0);
-	signal integerJ, integerJ2 : integer := 0;
+	signal integerJ : integer := 0;
 	signal NiInteger : integer := 0;
-	signal maskaux : std_logic_vector(31 downto 0) := x"00000000";
 	signal mask : std_logic_vector(31 downto 0) := x"00000000";
-	signal maskaux2 : std_logic_vector(31 downto 0) := x"00000000";
+	signal CM2 : std_logic_vector(31 downto 0);
 	
 
 	
@@ -118,7 +115,7 @@ end process;
 process(clock)
 begin
 	if rising_edge(clock) then
-	if(EA = idle or EA = ready or atrasoi = '0') then
+	if(EA = idle or EA = ready or atraso = '0') then
 		i <= "00000";
 	else
 		if(j = "111") then
@@ -143,9 +140,7 @@ end process;
 -- GOST_ROUND
 --------------------------------------
 CM1 <= LSB + key(to_integer(unsigned(key_count)));
---CM1 <= std_logic_vector(to_unsigned(to_integer(unsigned(LSB) + unsigned(key(to_integer(unsigned(key_count))))) mod 32, CM1'length));
 integerJ <= (4 * (7 - to_integer(unsigned(j))));
-integerJ2 <= (28 - (4 * to_integer(unsigned(j))));
 CM1aux <= std_logic_vector(shift_right(unsigned(CM1), integerJ));
 Ni <= std_logic_vector(to_unsigned(to_integer(unsigned(CM1aux)) mod 16,Ni'length));
 NiInteger <= to_integer(unsigned(Ni));
@@ -158,9 +153,8 @@ mask(15 downto 12) <= NiValor when (j = "100");
 mask(11 downto 8) <= NiValor when (j = "101");
 mask(7 downto 4) <= NiValor when (j = "110");
 mask(3 downto 0) <= NiValor when (j = "111");
-
 shift11 <= mask(20 downto 0) & mask(31 downto 21) when (j = "111") else (others => '0');
-
+CM2 <= (MSB xor shift11);
 process(clock, reset)
 begin
 	if rising_edge(clock) then
@@ -172,10 +166,10 @@ begin
 				MSB <= data_i(63 downto 32);
 				LSB <= data_i(31 downto 0);
 			elsif (EA = gost) then
-				if (j = "111") then
-					LSB <= (MSB xor shift11);
+				if(atraso = '1' and j = "111") then
 					MSB <= LSB;
-				end if ;
+				LSB <= CM2;
+				end if;
 			end if;
 		end if;
 	end if;
@@ -190,7 +184,8 @@ enc_count <= (not i(2 downto 0)) when (i(4 downto 3) = "11") else (i(2 downto 0)
 dec_count <= (i(2 downto 0)) when (i(4 downto 3) = "11") else (not i(2 downto 0));
 key_count <= enc_count when enc_dec = '1' else dec_count;
 key <= (key_i(31 downto 0), key_i(63 downto 32), key_i(95 downto 64), key_i(127 downto 96), key_i(159 downto 128), key_i(191 downto 160), key_i(223 downto 192), key_i(255 downto 224));
-atrasoi <= '1' when (i = "00000" and j = "000");
+atraso <= '1' when (i = "00000" and j = "000");
+
 --------------------------------------
 -- SAÍDAS
 --------------------------------------

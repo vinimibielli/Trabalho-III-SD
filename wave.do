@@ -29,6 +29,8 @@ add wave -noupdate /tb/DUT/integerJ2
 add wave -noupdate /tb/DUT/NiValor2
 add wave -noupdate /tb/DUT/sbox
 add wave -noupdate /tb/DUT/shift11
+add wave -noupdate /tb/DUT/CM2
+add wave -noupdate /tb/DUT/keyaux
 
 
 
