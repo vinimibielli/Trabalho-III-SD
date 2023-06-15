@@ -181,10 +181,10 @@ end process;
 --------------------------------------
 
 enc_count <= (not i(2 downto 0)) when (i(4 downto 3) = "11") else (i(2 downto 0));
-dec_count <= (i(2 downto 0)) when (i(4 downto 3) = "11") else (not i(2 downto 0));
+dec_count <= (i(2 downto 0)) when (i < "01000") else (not i(2 downto 0));
 key_count <= enc_count when enc_dec = '1' else dec_count;
 key <= (key_i(31 downto 0), key_i(63 downto 32), key_i(95 downto 64), key_i(127 downto 96), key_i(159 downto 128), key_i(191 downto 160), key_i(223 downto 192), key_i(255 downto 224));
-atraso <= '1' when (i = "00000" and j = "000");
+atraso <= '1' when (i = "00000" and j = "000" and EA = gost) else '0' when (EA = idle or EA = ready);
 
 --------------------------------------
 -- SAÍDAS
